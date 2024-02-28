@@ -27,3 +27,7 @@ The `profiles` contract has already been implemented and is now build-ready.
     ./deploy.sh profiles account-name { mainnet | testnet | local }
 
 ### The Profiles Contract API can be found in the documentation [here](docs/ContractAPI.md).
+
+## Init
+
+cleos push action profiles init '{"contract_name":"profiles","contract_version":"0.0.1","initial_admin":"profiles"}' -p profiles@active
