@@ -1,5 +1,8 @@
 #include <profiles.hpp>
 
+const string error_must_init_message = "contract must be initialized. call init action";
+const string profile_not_found_message = "profile not found";
+
 // ACTION profiles::delconf()
 // {
 //     config_singleton configs(get_self(), get_self().value);
@@ -10,7 +13,7 @@
 
 //======================== config actions ========================
 
-ACTION profiles::init(string contract_name, string contract_version, name initial_admin)
+ACTION profiles::init(const string& contract_name, const string& contract_version, const name& initial_admin)
 {
     //authenticate
     require_auth(get_self());
@@ -34,10 +37,11 @@ ACTION profiles::init(string contract_name, string contract_version, name initia
     configs.set(new_config, get_self());
 }
 
-ACTION profiles::setversion(string new_version)
+ACTION profiles::setversion(const string& new_version)
 {
     //open configs singleton
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //authenticate
@@ -50,10 +54,11 @@ ACTION profiles::setversion(string new_version)
     configs.set(conf, get_self());
 }
 
-ACTION profiles::setadmin(name new_admin)
+ACTION profiles::setadmin(const name& new_admin)
 {
     //open configs singleton
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //authenticate
@@ -66,10 +71,11 @@ ACTION profiles::setadmin(name new_admin)
     configs.set(conf, get_self());
 }
 
-ACTION profiles::setdefavatar(string new_default_avatar)
+ACTION profiles::setdefavatar(const string& new_default_avatar)
 {
     //open configs singleton
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //authenticate
@@ -82,10 +88,11 @@ ACTION profiles::setdefavatar(string new_default_avatar)
     configs.set(conf, get_self());
 }
 
-ACTION profiles::setlength(name length_name, uint32_t new_length)
+ACTION profiles::setlength(const name& length_name, uint32_t new_length)
 {
     //open configs singleton
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //authenticate
@@ -120,7 +127,7 @@ ACTION profiles::setlength(name length_name, uint32_t new_length)
 
 //======================== profile actions ========================
 
-ACTION profiles::newprofile(name account, optional<string> display_name, optional<string> avatar, optional<string> bio)
+ACTION profiles::newprofile(const name& account, const string& status, optional<string> display_name, optional<string> avatar, optional<string> bio)
 {
     //authenticate
     require_auth(account);
@@ -130,25 +137,30 @@ ACTION profiles::newprofile(name account, optional<string> display_name, optiona
     auto prof_itr = profs.find(account.value);
 
     //validate
-    check(prof_itr == profs.end(), "profile already exists");
+    check(prof_itr == profs.end(), "profile: " + account.to_string() + " already exists");
 
     //open configs singleton, get config
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
+    //validate status
+    check_size(status, conf.max_status_length, "status");
+
     //initialize
-    string profile_display_name = (display_name) ? *display_name : account.to_string();
-    string profile_avatar = (avatar) ? *avatar : conf.default_avatar;
-    string profile_bio = (bio) ? *bio : string("");
+    const string profile_display_name = (display_name) ? *display_name : account.to_string();
+    const string profile_avatar = (avatar) ? *avatar : conf.default_avatar;
+    const string profile_bio = (bio) ? *bio : string("");
 
     //validate
-    check(profile_display_name.length() <= conf.max_display_name_length, "display name too long");
-    check(profile_avatar.length() <= conf.max_avatar_length, "avatar image link too long");
-    check(profile_bio.length() <= conf.max_bio_length, "bio too long");
+    check_size(profile_display_name, conf.max_display_name_length, "display");
+    check_size(profile_avatar, conf.max_avatar_length, "avatar image link");
+    check_size(profile_bio, conf.max_bio_length, "bio");
     
     //emplace new profile
     //ram payer: contract
     profs.emplace(get_self(), [&](auto& col) {
+        col.status = status;
         col.account_name = account;
         col.display_name = profile_display_name;
         col.avatar = profile_avatar;
@@ -156,21 +168,22 @@ ACTION profiles::newprofile(name account, optional<string> display_name, optiona
     });
 }
 
-ACTION profiles::editdisplay(name account, string new_display_name)
+ACTION profiles::editdisplay(const name& account, const string& new_display_name)
 {
     //authenticate
     require_auth(account);
 
     //open profiles table, get profile
     profiles_table profs(get_self(), get_self().value);
-    auto& prof = profs.get(account.value, "profile not found");
+    auto& prof = profs.get(account.value, profile_not_found_message.c_str());
 
     //open configs singleton, get config
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //validate
-    check(new_display_name.length() <= conf.max_display_name_length, "display name too long");
+    check_size(new_display_name, conf.max_display_name_length, "display name");
 
     //update profile
     profs.modify(prof, same_payer, [&](auto& col) {
@@ -178,21 +191,22 @@ ACTION profiles::editdisplay(name account, string new_display_name)
     });
 }
 
-ACTION profiles::editavatar(name account, string new_avatar)
+ACTION profiles::editavatar(const name& account, const string& new_avatar)
 {
     //authenticate
     require_auth(account);
 
     //open profiles table, get profile
     profiles_table profs(get_self(), get_self().value);
-    auto& prof = profs.get(account.value, "profile not found");
+    auto& prof = profs.get(account.value, profile_not_found_message.c_str());
 
     //open configs singleton, get config
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //validate
-    check(new_avatar.length() <= conf.max_avatar_length, "avatar image link too long");
+    check_size(new_avatar, conf.max_avatar_length, "avatar image link");
 
     //update profile
     profs.modify(prof, same_payer, [&](auto& col) {
@@ -200,21 +214,22 @@ ACTION profiles::editavatar(name account, string new_avatar)
     });
 }
 
-ACTION profiles::editbio(name account, string new_bio)
+ACTION profiles::editbio(const name& account, const string& new_bio)
 {
     //authenticate
     require_auth(account);
 
     //open profiles table, get profile
     profiles_table profs(get_self(), get_self().value);
-    auto& prof = profs.get(account.value, "profile not found");
+    auto& prof = profs.get(account.value, profile_not_found_message.c_str());
 
     //open configs singleton, get config
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //validate
-    check(new_bio.length() <= conf.max_bio_length, "bio too long");
+    check_size(new_bio, conf.max_bio_length, "bio");
 
     //update profile
     profs.modify(prof, same_payer, [&](auto& col) {
@@ -222,21 +237,22 @@ ACTION profiles::editbio(name account, string new_bio)
     });
 }
 
-ACTION profiles::editstatus(name account, string new_status)
+ACTION profiles::editstatus(const name& account, const string& new_status)
 {
     //authenticate
     require_auth(account);
 
     //open profiles table, get profile
     profiles_table profs(get_self(), get_self().value);
-    auto& prof = profs.get(account.value, "profile not found");
+    auto& prof = profs.get(account.value, profile_not_found_message.c_str());
 
     //open configs singleton, get config
     config_singleton configs(get_self(), get_self().value);
+    check(configs.exists(), error_must_init_message.c_str());
     auto conf = configs.get();
 
     //validate
-    check(new_status.length() <= conf.max_status_length, "status too long");
+    check_size(new_status, conf.max_status_length, "status");
 
     //update profile
     profs.modify(prof, same_payer, [&](auto& col) {
@@ -244,14 +260,14 @@ ACTION profiles::editstatus(name account, string new_status)
     });
 }
 
-ACTION profiles::verify(name account)
+ACTION profiles::verify(const name& account)
 {
     //authenticate
     require_auth(permission_level{get_self(), name("verify")});
 
     //open profiles table, get profile
     profiles_table profs(get_self(), get_self().value);
-    auto& prof = profs.get(account.value, "profile not found");
+    auto& prof = profs.get(account.value, profile_not_found_message.c_str());
 
     //update profile
     profs.modify(prof, same_payer, [&](auto& col) {
@@ -259,14 +275,14 @@ ACTION profiles::verify(name account)
     });
 }
 
-ACTION profiles::delprofile(name account)
+ACTION profiles::delprofile(const name& account)
 {
     //authenticate
     require_auth(account);
 
     //open profiles table, get profile
     profiles_table profs(get_self(), get_self().value);
-    auto& prof = profs.get(account.value, "profile not found");
+    auto& prof = profs.get(account.value, profile_not_found_message.c_str());
 
     //erase profile
     profs.erase(prof);
@@ -274,7 +290,7 @@ ACTION profiles::delprofile(name account)
 
 //======================== metadata actions ========================
 
-ACTION profiles::writemeta(name writer, name account, string data)
+ACTION profiles::writemeta(const name& writer, const name& account, const string& data)
 {
     //authenticate
     require_auth(writer);
@@ -283,7 +299,7 @@ ACTION profiles::writemeta(name writer, name account, string data)
 
     //open profiles table, get profile
     profiles_table profiles(get_self(), get_self().value);
-    auto& prof = profiles.get(account.value, "profile not found");
+    auto& prof = profiles.get(account.value, profile_not_found_message.c_str());
 
     //open metadata table, find meta
     metadata_table metadata(get_self(), writer.value);
@@ -305,7 +321,7 @@ ACTION profiles::writemeta(name writer, name account, string data)
     }
 }
 
-ACTION profiles::delmeta(name writer, name account)
+ACTION profiles::delmeta(const name& writer, const name& account)
 {
     //authenticate
     require_auth(writer);
@@ -316,4 +332,11 @@ ACTION profiles::delmeta(name writer, name account)
 
     //delete metadata
     metadata.erase(meta);
+}
+
+void profiles::check_size(const string& parameter_value, uint32_t max_allowed_size, const string& parameter_name)
+{
+    //validate size
+    check(parameter_value.length() <= max_allowed_size, parameter_name + " too long. Maximum allowed is "
+        + to_string(max_allowed_size) + " , you entered size " + to_string(parameter_value.length()));
 }

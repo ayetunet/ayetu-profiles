@@ -2,7 +2,7 @@
 //
 // @author Craig Branscom
 // @contract profiles
-// @version v0.3.0
+// @version v0.4.0
 
 #include <eosio/eosio.hpp>
 #include <eosio/singleton.hpp>
@@ -23,65 +23,69 @@ CONTRACT profiles : public contract {
 
     //intitialize the contract
     //auth: self
-    ACTION init(string contract_name, string contract_version, name initial_admin);
+    ACTION init(const string& contract_name, const string& contract_version, const name& initial_admin);
 
     //set a new contract version
     //auth: admin
-    ACTION setversion(string new_version);
+    ACTION setversion(const string& new_version);
 
     //set a new admin
     //auth: admin
-    ACTION setadmin(name new_admin);
+    ACTION setadmin(const name& new_admin);
 
     //set a new default avatar
     //auth: admin
-    ACTION setdefavatar(string new_default_avatar);
-
+    ACTION setdefavatar(const string& new_default_avatar);
+	
     //set new max metadata character limit
     //auth: admin
-    ACTION setlength(name length_name, uint32_t new_length);
-
+    ACTION setlength(const name& length_name, uint32_t new_length);
     //======================== profile actions ========================
 
     //create a new profile
     //auth: account
-    ACTION newprofile(name account, optional<string> display_name, optional<string> avatar, optional<string> bio);
-
+    ACTION newprofile(const name& account, const string& status, optional<string> display_name, optional<string> avatar, optional<string> bio);
+	
     //edit a display name
     //auth: account
-    ACTION editdisplay(name account, string new_display_name);
+    ACTION editdisplay(const name& account, const string& new_display_name);
 
     //edit a profile avatar
     //auth: account
-    ACTION editavatar(name account, string new_avatar);
-
+    ACTION editavatar(const name& account, const string& new_avatar);
+	
     //edit a profile bio
     //auth: account
-    ACTION editbio(name account, string new_bio);
+    ACTION editbio(const name& account, const string& new_bio);
 
     //edit a profile status
     //auth: account
-    ACTION editstatus(name account, string new_status);
+    ACTION editstatus(const name& account, const string& new_status);
 
+	
     //verify a profile
     //auth: contract@verify
-    ACTION verify(name account);
+    ACTION verify(const name& account);
 
+	
     //delete a profile
     //auth: account
-    ACTION delprofile(name account);
-
+    ACTION delprofile(const name& account);
+	
     //======================== metadata actions ========================
 
     //write new metadata for a profile
     //auth: writer
-    ACTION writemeta(name writer, name account, string data);
-
+    ACTION writemeta(const name& writer, const name& account, const string& data);
+	
     //delete metadata from a profile
     //auth: writer
-    ACTION delmeta(name writer, name account);
-
+    ACTION delmeta(const name& writer, const name& account);
     //======================== contract tables ========================
+
+private:
+    void check_is_status_valid(const name& status);
+    void check_size(const string& parameter_value, uint32_t max_allowed_size, const string& parameter_name);
 
     //config table
     //scope: self
